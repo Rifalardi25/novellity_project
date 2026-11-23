@@ -37,6 +37,7 @@ function concurrencyLimit(req, res, next) {
 }
 
 concurrencyLimit.concurrencyLimit = concurrencyLimit;
+concurrencyLimit.concurrencyLimiter = concurrencyLimit;
 concurrencyLimit.getConcurrencyStatus = getConcurrencyStatus;
 concurrencyLimit.getActiveRequests = () => activeRequests;
 concurrencyLimit.MAX_CONCURRENT = MAX_CONCURRENT;

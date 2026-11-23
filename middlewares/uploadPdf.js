@@ -116,6 +116,7 @@ function validatePdfFiles(req, res, next) {
 }
 
 module.exports = {
+  uploadPdf: handleMulterUpload,
   handleMulterUpload,
   validatePdfFiles,
 };

@@ -28,4 +28,5 @@ function rateLimit(req, res, next) {
 }
 
 rateLimit.rateLimit = rateLimit;
+rateLimit.analisisRateLimiter = rateLimit;
 module.exports = rateLimit;
