@@ -1,6 +1,6 @@
 const { sendError } = require('../utils/response');
 
-const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT, 10) || 2;
+const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT, 10) || 5;
 let activeRequests = 0;
 
 function concurrencyLimiter(req, res, next) {
