@@ -62,8 +62,12 @@ app.use((err, req, res, next) => {
   );
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`[SERVER] Novellity berjalan di http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`[SERVER] Novellity berjalan di http://localhost:${PORT}`);
+  });
 
-server.setTimeout(190000);
+  server.setTimeout(65000);
+}
+
+module.exports = app;

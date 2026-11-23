@@ -1,23 +1,31 @@
-const rateLimit = require('express-rate-limit');
 const { sendError } = require('../utils/response');
 
-const maxRequestsPerMin = parseInt(process.env.RATE_LIMIT_PER_MIN, 10) || 5;
+const RATE_LIMIT_PER_MIN = parseInt(process.env.RATE_LIMIT_PER_MIN, 10) || 10;
+const WINDOW_MS = 60 * 1000;
+const requestLogs = new Map();
 
-const analisisRateLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: maxRequestsPerMin,
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
+function rateLimit(req, res, next) {
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  const timestamps = requestLogs.get(clientIp) || [];
+  const validTimestamps = timestamps.filter((time) => now - time < WINDOW_MS);
+
+  if (validTimestamps.length >= RATE_LIMIT_PER_MIN) {
+    requestLogs.set(clientIp, validTimestamps);
     return sendError(
       res,
       429,
       'TERLALU_BANYAK_PERMINTAAN',
-      `Batas maksimal ${maxRequestsPerMin} permintaan analisis per menit tercapai. Silakan tunggu satu menit sebelum mencoba lagi.`
+      `Batas maksimal ${RATE_LIMIT_PER_MIN} permintaan per menit telah tercapai. Silakan tunggu sebentar sebelum mencoba lagi.`
     );
-  },
-});
+  }
 
-module.exports = {
-  analisisRateLimiter,
-};
+  validTimestamps.push(now);
+  requestLogs.set(clientIp, validTimestamps);
+
+  return next();
+}
+
+rateLimit.rateLimit = rateLimit;
+module.exports = rateLimit;

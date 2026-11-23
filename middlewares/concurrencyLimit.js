@@ -3,22 +3,29 @@ const { sendError } = require('../utils/response');
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT, 10) || 5;
 let activeRequests = 0;
 
-function concurrencyLimiter(req, res, next) {
+function getConcurrencyStatus() {
+  return {
+    antrean_aktif: activeRequests,
+    maks_antrean: MAX_CONCURRENT,
+  };
+}
+
+function concurrencyLimit(req, res, next) {
   if (activeRequests >= MAX_CONCURRENT) {
     return sendError(
       res,
       503,
       'SERVER_SEDANG_SIBUK',
-      'Server sedang memproses permintaan analisis lain. Silakan tunggu beberapa detik lalu coba kembali.'
+      `Peladen sedang memproses ${MAX_CONCURRENT} analisis secara bersamaan. Silakan tunggu beberapa detik lalu coba kembali.`
     );
   }
 
   activeRequests += 1;
-  let released = false;
+  let isReleased = false;
 
   const releaseSlot = () => {
-    if (!released) {
-      released = true;
+    if (!isReleased) {
+      isReleased = true;
       activeRequests = Math.max(0, activeRequests - 1);
     }
   };
@@ -29,14 +36,9 @@ function concurrencyLimiter(req, res, next) {
   return next();
 }
 
-function getQueueStatus() {
-  return {
-    antrean_aktif: activeRequests,
-    maks_antrean: MAX_CONCURRENT,
-  };
-}
+concurrencyLimit.concurrencyLimit = concurrencyLimit;
+concurrencyLimit.getConcurrencyStatus = getConcurrencyStatus;
+concurrencyLimit.getActiveRequests = () => activeRequests;
+concurrencyLimit.MAX_CONCURRENT = MAX_CONCURRENT;
 
-module.exports = {
-  concurrencyLimiter,
-  getQueueStatus,
-};
+module.exports = concurrencyLimit;

@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
 });
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-4-hydrogen';
-const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 180000;
+const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 55000;
 
 module.exports = {
   ai,

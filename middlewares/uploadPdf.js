@@ -1,42 +1,35 @@
-const path = require('path');
 const multer = require('multer');
 const { sendError } = require('../utils/response');
 
-const MAX_FILES = parseInt(process.env.MAX_FILES, 10) || 10;
-const MAX_TOTAL_MB = parseInt(process.env.MAX_TOTAL_MB, 10) || 15;
+const MAX_FILES = parseInt(process.env.MAX_FILES, 10) || 5;
+const MAX_TOTAL_MB = parseInt(process.env.MAX_TOTAL_MB, 10) || 4;
 const MAX_TOTAL_BYTES = MAX_TOTAL_MB * 1024 * 1024;
 
+const storage = multer.memoryStorage();
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage,
   limits: {
     files: MAX_FILES,
     fileSize: MAX_TOTAL_BYTES,
   },
 });
 
-function clearFileBuffers(files) {
-  if (Array.isArray(files)) {
-    for (const file of files) {
-      file.buffer = null;
-    }
-  }
-}
-
 function handleMulterUpload(req, res, next) {
-  const uploader = upload.array('files', MAX_FILES);
+  const uploadHandler = upload.array('files', MAX_FILES);
 
-  uploader(req, res, (err) => {
+  uploadHandler(req, res, (err) => {
     if (!err) {
       return next();
     }
 
     if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_COUNT') {
+      if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
         return sendError(
           res,
           400,
           'BERKAS_TIDAK_VALID',
-          `Jumlah berkas melebihi batas maksimal ${MAX_FILES} file PDF.`
+          `Jumlah berkas melebihi batas maksimal ${MAX_FILES} dokumen PDF.`
         );
       }
 
@@ -45,53 +38,40 @@ function handleMulterUpload(req, res, next) {
           res,
           413,
           'UKURAN_MELEBIHI_BATAS',
-          `Ukuran berkas melampaui batas maksimal ${MAX_TOTAL_MB} MB.`
+          `Ukuran berkas melebihi batas maksimal total ${MAX_TOTAL_MB} MB.`
         );
       }
 
-      return sendError(
-        res,
-        400,
-        'BERKAS_TIDAK_VALID',
-        `Gagal memproses unggahan berkas: ${err.message}`
-      );
+      return sendError(res, 400, 'BERKAS_TIDAK_VALID', `Gagal memproses unggahan: ${err.message}`);
     }
 
-    return sendError(
-      res,
-      400,
-      'BERKAS_TIDAK_VALID',
-      'Terjadi kesalahan saat membaca berkas unggahan.'
-    );
+    return next(err);
   });
 }
 
 function validatePdfFiles(req, res, next) {
-  const isSampleMode =
-    req.body && (req.body.useSample === 'true' || req.body.useSample === true);
-
-  if (isSampleMode) {
+  if (req.body && req.body.useSample === 'true') {
     return next();
   }
 
-  const files = req.files;
+  const files = req.files || [];
 
-  if (!files || files.length === 0) {
+  if (files.length === 0) {
     return sendError(
       res,
       400,
       'BERKAS_TIDAK_VALID',
-      'Minimal satu berkas PDF harus diunggah sebelum memulai analisis.'
+      'Silakan unggah minimal 1 berkas jurnal ilmiah berformat PDF.'
     );
   }
 
   if (files.length > MAX_FILES) {
-    clearFileBuffers(files);
+    req.files = [];
     return sendError(
       res,
       400,
       'BERKAS_TIDAK_VALID',
-      `Maksimal hanya ${MAX_FILES} berkas PDF yang diperbolehkan.`
+      `Maksimal hanya ${MAX_FILES} dokumen PDF yang dapat dianalisis dalam satu sesi.`
     );
   }
 
@@ -99,7 +79,7 @@ function validatePdfFiles(req, res, next) {
 
   for (const file of files) {
     if (!file.buffer || file.size === 0) {
-      clearFileBuffers(files);
+      req.files = [];
       return sendError(
         res,
         400,
@@ -108,34 +88,9 @@ function validatePdfFiles(req, res, next) {
       );
     }
 
-    totalBytes += file.size;
-    if (totalBytes > MAX_TOTAL_BYTES) {
-      clearFileBuffers(files);
-      return sendError(
-        res,
-        413,
-        'UKURAN_MELEBIHI_BATAS',
-        `Akumulasi ukuran seluruh berkas melampaui batas maksimal ${MAX_TOTAL_MB} MB.`
-      );
-    }
-
-    const ext = path.extname(file.originalname).toLowerCase();
-    const isPdfMime = file.mimetype === 'application/pdf';
-    const isPdfExt = ext === '.pdf';
-
-    if (!isPdfMime || !isPdfExt) {
-      clearFileBuffers(files);
-      return sendError(
-        res,
-        415,
-        'BUKAN_FORMAT_PDF',
-        `Berkas "${file.originalname}" ditolak karena bukan berformat PDF.`
-      );
-    }
-
-    const pdfSignature = file.buffer.subarray(0, 5).toString('ascii');
-    if (pdfSignature !== '%PDF-') {
-      clearFileBuffers(files);
+    const headerSignature = file.buffer.subarray(0, 5).toString('ascii');
+    if (headerSignature !== '%PDF-') {
+      req.files = [];
       return sendError(
         res,
         415,
@@ -143,6 +98,18 @@ function validatePdfFiles(req, res, next) {
         `Isi berkas "${file.originalname}" tidak valid sebagai dokumen PDF asli.`
       );
     }
+
+    totalBytes += file.size;
+  }
+
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    req.files = [];
+    return sendError(
+      res,
+      413,
+      'UKURAN_MELEBIHI_BATAS',
+      `Total ukuran seluruh berkas melebihi batas maksimal ${MAX_TOTAL_MB} MB.`
+    );
   }
 
   return next();
@@ -151,5 +118,4 @@ function validatePdfFiles(req, res, next) {
 module.exports = {
   handleMulterUpload,
   validatePdfFiles,
-  clearFileBuffers,
 };
