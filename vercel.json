@@ -1,11 +1,5 @@
 {
-  "version": 2,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/app.js"
-    }
-  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "app.js": {
       "maxDuration": 180,
