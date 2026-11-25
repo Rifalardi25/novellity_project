@@ -3,8 +3,11 @@ const { sendError } = require('../utils/response');
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT, 10) || 5;
 let activeRequests = 0;
 
-function getConcurrencyStatus() {
+function getQueueStatus() {
   return {
+    active: activeRequests,
+    max: MAX_CONCURRENT,
+    available: Math.max(0, MAX_CONCURRENT - activeRequests),
     antrean_aktif: activeRequests,
     maks_antrean: MAX_CONCURRENT,
   };
@@ -38,7 +41,8 @@ function concurrencyLimit(req, res, next) {
 
 concurrencyLimit.concurrencyLimit = concurrencyLimit;
 concurrencyLimit.concurrencyLimiter = concurrencyLimit;
-concurrencyLimit.getConcurrencyStatus = getConcurrencyStatus;
+concurrencyLimit.getQueueStatus = getQueueStatus;
+concurrencyLimit.getConcurrencyStatus = getQueueStatus;
 concurrencyLimit.getActiveRequests = () => activeRequests;
 concurrencyLimit.MAX_CONCURRENT = MAX_CONCURRENT;
 

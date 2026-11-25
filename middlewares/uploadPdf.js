@@ -1,8 +1,8 @@
 const multer = require('multer');
 const { sendError } = require('../utils/response');
 
-const MAX_FILES = parseInt(process.env.MAX_FILES, 10) || 5;
-const MAX_TOTAL_MB = parseInt(process.env.MAX_TOTAL_MB, 10) || 4;
+const MAX_FILES = parseInt(process.env.MAX_FILES, 10) || 10;
+const MAX_TOTAL_MB = parseInt(process.env.MAX_TOTAL_MB, 10) || 15;
 const MAX_TOTAL_BYTES = MAX_TOTAL_MB * 1024 * 1024;
 
 const storage = multer.memoryStorage();
@@ -66,6 +66,7 @@ function validatePdfFiles(req, res, next) {
   }
 
   if (files.length > MAX_FILES) {
+    clearFileBuffers(files);
     req.files = [];
     return sendError(
       res,
@@ -79,6 +80,7 @@ function validatePdfFiles(req, res, next) {
 
   for (const file of files) {
     if (!file.buffer || file.size === 0) {
+      clearFileBuffers(files);
       req.files = [];
       return sendError(
         res,
@@ -90,6 +92,7 @@ function validatePdfFiles(req, res, next) {
 
     const headerSignature = file.buffer.subarray(0, 5).toString('ascii');
     if (headerSignature !== '%PDF-') {
+      clearFileBuffers(files);
       req.files = [];
       return sendError(
         res,
@@ -103,6 +106,7 @@ function validatePdfFiles(req, res, next) {
   }
 
   if (totalBytes > MAX_TOTAL_BYTES) {
+    clearFileBuffers(files);
     req.files = [];
     return sendError(
       res,
@@ -115,8 +119,23 @@ function validatePdfFiles(req, res, next) {
   return next();
 }
 
+function clearFileBuffers(files) {
+  if (!Array.isArray(files)) {
+    return;
+  }
+
+  for (const file of files) {
+    if (file && file.buffer) {
+      file.buffer = null;
+    }
+  }
+
+  files.length = 0;
+}
+
 module.exports = {
   uploadPdf: handleMulterUpload,
   handleMulterUpload,
   validatePdfFiles,
+  clearFileBuffers,
 };

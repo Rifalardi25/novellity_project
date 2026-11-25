@@ -54,6 +54,9 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error('[SERVER_ERROR]', err.message);
+  if (res.headersSent) {
+    return next(err);
+  }
   return sendError(
     res,
     err.statusCode || 500,
@@ -67,7 +70,7 @@ if (require.main === module) {
     console.log(`[SERVER] Novellity berjalan di http://localhost:${PORT}`);
   });
 
-  server.setTimeout(65000);
+  server.setTimeout(185000);
 }
 
 module.exports = app;

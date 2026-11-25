@@ -8,8 +8,8 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-4-hydrogen';
-const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 55000;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 180000;
 
 module.exports = {
   ai,
