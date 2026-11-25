@@ -1,4 +1,3 @@
-const pdfParseLib = require('pdf-parse');
 const { ai, GEMINI_MODEL, AI_TIMEOUT_MS } = require('../config/gemini');
 const { analisisResponseSchema, validateAnalisisPayload } = require('../utils/schema');
 const { SYSTEM_INSTRUCTION, buildUserPrompt } = require('./prompt.service');
@@ -17,6 +16,96 @@ const MODEL_CANDIDATES = [
     'gemini-3.1-flash-lite',
   ]),
 ];
+
+let cachedPdfParseLib = null;
+
+function ensureDomPolyfills() {
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    globalThis.DOMMatrix = class DOMMatrix {
+      constructor(init) {
+        this.a = 1;
+        this.b = 0;
+        this.c = 0;
+        this.d = 1;
+        this.e = 0;
+        this.f = 0;
+        if (Array.isArray(init) && init.length >= 6) {
+          [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+        }
+      }
+
+      multiply() {
+        return new globalThis.DOMMatrix();
+      }
+
+      translate() {
+        return new globalThis.DOMMatrix();
+      }
+
+      scale() {
+        return new globalThis.DOMMatrix();
+      }
+
+      inverse() {
+        return new globalThis.DOMMatrix();
+      }
+
+      transformPoint(pt = { x: 0, y: 0 }) {
+        return {
+          x: this.a * (pt.x || 0) + this.c * (pt.y || 0) + this.e,
+          y: this.b * (pt.x || 0) + this.d * (pt.y || 0) + this.f,
+        };
+      }
+
+      static fromMatrix(other) {
+        return new globalThis.DOMMatrix(
+          other ? [other.a, other.b, other.c, other.d, other.e, other.f] : undefined
+        );
+      }
+
+      static fromFloat32Array(arr) {
+        return new globalThis.DOMMatrix(Array.from(arr || []));
+      }
+
+      static fromFloat64Array(arr) {
+        return new globalThis.DOMMatrix(Array.from(arr || []));
+      }
+    };
+  }
+
+  if (typeof globalThis.ImageData === 'undefined') {
+    globalThis.ImageData = class ImageData {
+      constructor(width = 0, height = 0) {
+        this.width = width;
+        this.height = height;
+        this.data = new Uint8ClampedArray(width * height * 4);
+      }
+    };
+  }
+
+  if (typeof globalThis.Path2D === 'undefined') {
+    globalThis.Path2D = class Path2D {
+      addPath() {}
+      closePath() {}
+      moveTo() {}
+      lineTo() {}
+      bezierCurveTo() {}
+      quadraticCurveTo() {}
+      arc() {}
+      arcTo() {}
+      ellipse() {}
+      rect() {}
+    };
+  }
+}
+
+function getPdfParseLib() {
+  if (!cachedPdfParseLib) {
+    ensureDomPolyfills();
+    cachedPdfParseLib = require('pdf-parse');
+  }
+  return cachedPdfParseLib;
+}
 
 function createServiceError(statusCode, code, message) {
   const error = new Error(message);
@@ -59,6 +148,8 @@ function cleanAndTrimAcademicText(rawText) {
 
 async function extractPdfText(buffer) {
   try {
+    const pdfParseLib = getPdfParseLib();
+
     if (typeof pdfParseLib === 'function') {
       const parsed = await pdfParseLib(buffer);
       return cleanAndTrimAcademicText(parsed?.text || '');
